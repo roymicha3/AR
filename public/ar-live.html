@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Live AR</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #111;
+               color: #eee; font: 14px/1.4 -apple-system, BlinkMacSystemFont,
+               "Segoe UI", sans-serif; }
+  canvas { display: block; }
+  #info { position: fixed; top: 12px; left: 12px; right: 12px;
+          display: flex; justify-content: space-between; align-items: center;
+          pointer-events: none; z-index: 5; }
+  #info .title { font-weight: 600; pointer-events: auto;
+                 background: rgba(0,0,0,0.45); padding: 6px 10px;
+                 border-radius: 16px; }
+  #info .back { color: #eee; opacity: 0.85;
+                pointer-events: auto; background: rgba(0,0,0,0.45);
+                padding: 6px 10px; border-radius: 16px;
+                border: none; cursor: pointer; }
+  #info .back:hover { opacity: 1; }
+  #overlay { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+  #overlay > * { pointer-events: auto; }
+  #status { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+            background: rgba(0,0,0,0.55); padding: 8px 14px; border-radius: 12px;
+            font-size: 13px; max-width: 80vw; text-align: center; }
+  #panel { position: absolute; right: 12px; bottom: 96px; width: 220px;
+           background: rgba(0,0,0,0.65); padding: 12px 14px; border-radius: 12px;
+           backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+           display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
+  #panel label { display: flex; flex-direction: column; gap: 4px; color: #ddd; }
+  #panel label span.row { display: flex; justify-content: space-between;
+                          font-size: 11px; opacity: 0.8; }
+  #panel input[type=range] { width: 100%; }
+  #panel button { background: transparent; color: #ddd;
+                  border: 1px solid #444; padding: 8px;
+                  border-radius: 8px; font-weight: 500; cursor: pointer; }
+  @media (max-width: 480px) {
+    #panel { left: 12px; right: 12px; width: auto; bottom: 96px; }
+    #status { bottom: 220px; }
+  }
+  button.xr-button, .xr-button { position: fixed !important;
+    bottom: 24px !important; left: 50% !important;
+    transform: translateX(-50%) !important;
+    padding: 12px 24px !important; border: 0 !important;
+    border-radius: 24px !important; background: #fff !important;
+    color: #111 !important; font: 600 14px -apple-system, sans-serif !important;
+    z-index: 6 !important; cursor: pointer; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="info">
+  <div class="title" id="model-title">AR</div>
+  <button class="back" onclick="history.back()">← back</button>
+</div>
+<div id="overlay">
+  <div id="status">Loading model…</div>
+  <div id="panel">
+    <label>
+      <span class="row"><span>Scale</span><span id="scale-val">1.00×</span></span>
+      <input id="scale-slider" type="range" min="0.1" max="3" step="0.05" value="1">
+    </label>
+    <label>
+      <span class="row"><span>Rotate Y</span><span id="rot-val">0°</span></span>
+      <input id="rot-slider" type="range" min="-180" max="180" step="1" value="0">
+    </label>
+    <button id="reset-btn" type="button">Reset placement</button>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { ARButton } from 'three/addons/webxr/ARButton.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const params = new URLSearchParams(location.search);
+const glbUrl = params.get('glb') || '';
+const modelName = params.get('name') || 'Model';
+
+document.getElementById('model-title').textContent = modelName;
+document.title = `Live AR — ${modelName}`;
+
+const statusEl = document.getElementById('status');
+const setStatus = (m) => { statusEl.textContent = m; };
+
+const state = { scale: 1.0, rotationY: 0 };
+
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+camera.position.set(0, 1.2, 2.5);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.0));
+const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+dir.position.set(5, 10, 7);
+scene.add(dir);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.5, 0);
+controls.update();
+
+const reticle = new THREE.Mesh(
+  new THREE.RingGeometry(0.07, 0.10, 32).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0xffffff })
+);
+reticle.matrixAutoUpdate = false;
+reticle.visible = false;
+scene.add(reticle);
+
+let modelTemplate = null;
+let previewClone = null;
+let placedModel = null;
+
+function applyState(obj) {
+  if (!obj) return;
+  obj.scale.setScalar(state.scale);
+  obj.rotation.y = state.rotationY;
+}
+
+if (!glbUrl) {
+  setStatus('No model URL provided.');
+} else {
+  const loader = new GLTFLoader();
+  loader.load(
+    glbUrl,
+    (gltf) => {
+      modelTemplate = gltf.scene;
+      previewClone = modelTemplate.clone();
+      applyState(previewClone);
+      scene.add(previewClone);
+      setStatus('Tap "START AR" to place in your space.');
+    },
+    undefined,
+    (err) => setStatus('Failed to load model: ' + (err.message || err))
+  );
+}
+
+// HUD wiring
+document.getElementById('scale-slider').addEventListener('input', (e) => {
+  state.scale = parseFloat(e.target.value);
+  document.getElementById('scale-val').textContent = state.scale.toFixed(2) + '×';
+  applyState(previewClone);
+  applyState(placedModel);
+});
+
+document.getElementById('rot-slider').addEventListener('input', (e) => {
+  const deg = parseFloat(e.target.value);
+  state.rotationY = deg * Math.PI / 180;
+  document.getElementById('rot-val').textContent = deg + '°';
+  applyState(previewClone);
+  applyState(placedModel);
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (placedModel) { scene.remove(placedModel); placedModel = null; }
+  setStatus('Placement cleared.');
+});
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+if (isIOS) {
+  const viewerUrl = new URL('/ar-viewer.html', location.href);
+  viewerUrl.searchParams.set('glb', glbUrl);
+  viewerUrl.searchParams.set('name', modelName);
+  const usdzUrl = params.get('usdz') || '';
+  if (usdzUrl) viewerUrl.searchParams.set('usdz', usdzUrl);
+
+  const card = document.createElement('div');
+  card.style.cssText = `position:fixed;bottom:24px;left:50%;
+    transform:translateX(-50%);background:rgba(30,30,30,0.92);
+    color:#eee;padding:16px 20px;border-radius:16px;text-align:center;
+    font-size:14px;max-width:300px;z-index:10;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);`;
+  card.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px">WebXR not supported on iOS</div>
+    <div style="font-size:12px;opacity:0.75;margin-bottom:12px">
+      Use the viewer page for Quick Look AR.
+    </div>
+    <a href="${viewerUrl}" style="display:inline-block;background:#fff;color:#111;
+      font-weight:600;padding:10px 20px;border-radius:24px;
+      text-decoration:none;font-size:14px;">← Back to viewer</a>
+  `;
+  document.body.appendChild(card);
+  setStatus('WebXR AR is not available on iOS Safari.');
+} else {
+  const arButton = ARButton.createButton(renderer, {
+    requiredFeatures: ['hit-test'],
+    optionalFeatures: ['dom-overlay'],
+    domOverlay: { root: document.getElementById('overlay') }
+  });
+  arButton.classList.add('xr-button');
+  document.body.appendChild(arButton);
+}
+
+let hitTestSource = null;
+let localSpace = null;
+
+renderer.xr.addEventListener('sessionstart', async () => {
+  setStatus('Move the phone around to find a surface, then tap.');
+  if (previewClone) previewClone.visible = false;
+  const session = renderer.xr.getSession();
+  const viewerSpace = await session.requestReferenceSpace('viewer');
+  hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+  localSpace = await session.requestReferenceSpace('local');
+});
+
+renderer.xr.addEventListener('sessionend', () => {
+  hitTestSource = null;
+  localSpace = null;
+  if (placedModel) { scene.remove(placedModel); placedModel = null; }
+  if (previewClone) previewClone.visible = true;
+  reticle.visible = false;
+  setStatus('Out of AR. Tap "START AR" again to retry.');
+});
+
+const controller = renderer.xr.getController(0);
+controller.addEventListener('select', () => {
+  if (!reticle.visible || !modelTemplate) return;
+  if (placedModel) scene.remove(placedModel);
+  placedModel = modelTemplate.clone();
+  placedModel.position.setFromMatrixPosition(reticle.matrix);
+  applyState(placedModel);
+  scene.add(placedModel);
+  setStatus('Placed. Adjust with the panel; tap to relocate.');
+});
+scene.add(controller);
+
+renderer.setAnimationLoop((time, frame) => {
+  if (frame && hitTestSource && localSpace) {
+    const hits = frame.getHitTestResults(hitTestSource);
+    if (hits.length) {
+      const pose = hits[0].getPose(localSpace);
+      reticle.visible = true;
+      reticle.matrix.fromArray(pose.transform.matrix);
+    } else {
+      reticle.visible = false;
+    }
+  } else {
+    controls.update();
+  }
+  renderer.render(scene, camera);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

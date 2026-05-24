@@ -1,0 +1,11 @@
+[
+  {
+    "id": "illuminated-lattice",
+    "name": "Illuminated Lattice",
+    "category": "Generated",
+    "thumbnail_url": "/models/gilboa-white.png",
+    "ar_url": "",
+    "glb_local_url": "/models/lattice.glb",
+    "usdz_local_url": "/models/lattice.usdz"
+  }
+]

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AR Viewer</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #eee;
+               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  model-viewer { width: 100vw; height: 100vh; background: #111; }
+  .hint { position: fixed; left: 12px; bottom: 12px; font-size: 13px;
+          opacity: 0.6; pointer-events: none; }
+  .hint a { color: #eee; text-decoration: underline;
+            text-decoration-color: #444; pointer-events: auto; }
+  .back { position: fixed; top: 12px; left: 12px; font-size: 13px;
+          background: rgba(0,0,0,0.45); padding: 6px 10px;
+          border-radius: 16px; border: none; color: #eee; cursor: pointer; }
+</style>
+<script type="module"
+  src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+</head>
+<body>
+<button class="back" onclick="history.back()">← back</button>
+<div class="hint" id="hint"></div>
+<script>
+  const p = new URLSearchParams(location.search);
+  const glb  = p.get('glb')  || '';
+  const usdz = p.get('usdz') || '';
+  const name = p.get('name') || 'Model';
+
+  document.title = 'AR — ' + name;
+
+  const mv = document.createElement('model-viewer');
+  mv.setAttribute('src', glb);
+  mv.setAttribute('alt', name);
+  mv.setAttribute('camera-controls', '');
+  mv.setAttribute('auto-rotate', '');
+  mv.setAttribute('ar', '');
+  mv.setAttribute('shadow-intensity', '1');
+  mv.setAttribute('exposure', '1');
+
+  if (usdz) {
+    mv.setAttribute('ios-src', usdz);
+    mv.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
+  } else {
+    mv.setAttribute('ar-modes', 'webxr scene-viewer');
+  }
+
+  // AR button
+  const arBtn = document.createElement('button');
+  arBtn.setAttribute('slot', 'ar-button');
+  arBtn.style.cssText = 'position:absolute;bottom:24px;right:24px;' +
+    'padding:12px 18px;border:0;border-radius:24px;background:#fff;' +
+    'color:#111;font-weight:600;font-size:14px;cursor:pointer;';
+  arBtn.textContent = 'View in your space';
+  mv.appendChild(arBtn);
+
+  // AR failure fallback
+  const arFail = document.createElement('div');
+  arFail.setAttribute('slot', 'ar-failure');
+  arFail.style.cssText = 'position:absolute;bottom:24px;right:24px;' +
+    'padding:12px 18px;border-radius:24px;background:rgba(0,0,0,0.7);' +
+    'color:#eee;font-size:13px;max-width:240px;text-align:center;';
+  arFail.textContent = usdz
+    ? 'AR unavailable on this device/browser.'
+    : 'AR unavailable. iOS requires a USDZ file.';
+  mv.appendChild(arFail);
+
+  document.body.appendChild(mv);
+
+  // Live AR link for Android WebXR hit-test
+  const hint = document.getElementById('hint');
+  const liveUrl = new URL('/ar-live.html', location.href);
+  liveUrl.searchParams.set('glb', glb);
+  liveUrl.searchParams.set('name', name);
+  hint.innerHTML = `<a href="${liveUrl}">Live AR (WebXR placement)</a>`;
+</script>
+</body>
+</html>
