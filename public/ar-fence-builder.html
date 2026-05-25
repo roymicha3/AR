@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fence Component Builder</title>
+<style>
+  :root { color-scheme: dark; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #111; color: #eee; min-height: 100vh; }
+  #app { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px;
+           padding-bottom: 16px; border-bottom: 1px solid #222; }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  .back { color: #888; font-size: 13px; background: none; border: none;
+          cursor: pointer; padding: 0; text-decoration: none; }
+  .back:hover { color: #eee; }
+  section { margin-bottom: 24px; }
+  label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; font-weight: 500; }
+  input[type=text], input[type=password] {
+    width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a;
+    border-radius: 8px; padding: 9px 12px; color: #eee; font-size: 14px; }
+  input[type=text]:focus, input[type=password]:focus { outline: none; border-color: #444; }
+  .dropzone { border: 1px dashed #333; border-radius: 10px;
+              min-height: 140px; display: flex; flex-direction: column;
+              align-items: center; justify-content: center; gap: 8px;
+              cursor: pointer; transition: border-color 0.15s, background 0.15s;
+              position: relative; overflow: hidden; background: #161616; }
+  .dropzone:hover { border-color: #555; background: #1a1a1a; }
+  .dropzone.has-image { border-style: solid; border-color: #444; }
+  .dropzone img.preview { position: absolute; inset: 0; width: 100%; height: 100%;
+                          object-fit: contain; padding: 8px; }
+  .dropzone .dz-label { font-size: 13px; color: #555; position: relative; z-index: 1; }
+  .dropzone .dz-sub { font-size: 11px; color: #444; position: relative; z-index: 1; }
+  .dropzone .clear-btn { position: absolute; top: 8px; right: 8px; z-index: 3;
+    background: rgba(0,0,0,0.65); border: none; color: #eee; border-radius: 50%;
+    width: 24px; height: 24px; cursor: pointer; font-size: 14px;
+    display: none; align-items: center; justify-content: center; }
+  .dropzone.has-image .clear-btn { display: flex; }
+  input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 10px;
+         font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  .btn-primary { background: #fff; color: #111; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-outline { background: transparent; color: #ddd; border: 1px solid #333;
+                 font-size: 14px; font-weight: 500; }
+  .btn-outline:hover { border-color: #555; }
+  #steps { display: flex; flex-direction: column; gap: 6px; }
+  .step { display: flex; align-items: center; gap: 10px; font-size: 13px;
+          color: #555; padding: 8px 12px; border-radius: 8px; background: #161616; }
+  .step.active { color: #eee; background: #1e1e1e; }
+  .step.done { color: #4ade80; }
+  .step.error { color: #f87171; }
+  .step-icon { font-size: 15px; flex-shrink: 0; width: 20px; text-align: center; }
+  .step-detail { font-size: 11px; color: #666; margin-left: auto; }
+  .step.active .step-detail { color: #888; }
+  .previews { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .comp-card { background: #161616; border: 1px solid #222; border-radius: 10px;
+               overflow: hidden; }
+  .comp-card .comp-label { font-size: 11px; color: #666; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 12px 0; }
+  .comp-card canvas { display: block; width: 100% !important; height: auto !important;
+                      aspect-ratio: 1; }
+  #status-msg { font-size: 13px; color: #888; min-height: 18px; margin-top: 12px; }
+  #status-msg.error { color: #f87171; }
+  .hint { font-size: 12px; color: #555; margin-top: 6px; }
+  .field-row { display: flex; gap: 10px; align-items: flex-end; }
+  .field-row > div { flex: 1; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "@fal-ai/client": "https://esm.sh/@fal-ai/client"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button class="back" onclick="history.back()">← Catalog</button>
+    <h1>Fence Component Builder</h1>
+  </header>
+
+  <section>
+    <label>fal.ai API Key</label>
+    <input type="password" id="api-key" placeholder="key-xxxxxxxxxxxxxxxx"
+           autocomplete="off" spellcheck="false">
+    <p class="hint">Stored locally in your browser. Get yours at fal.ai/dashboard.</p>
+  </section>
+
+  <section>
+    <label>Fence Photo</label>
+    <div class="dropzone" id="dz-fence">
+      <button class="clear-btn" type="button" aria-label="Remove">×</button>
+      <input type="file" accept="image/*">
+      <span class="dz-label">Drop or click to upload</span>
+      <span class="dz-sub">Shows a fence with both panels and posts visible</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="field-row">
+      <div>
+        <label>Backend URL (for fence layout)</label>
+        <input type="text" id="api-base" placeholder="http://localhost:8000">
+      </div>
+    </div>
+    <p class="hint">Used only when opening the Fence AR viewer. Requires the image-ai-edit server.</p>
+  </section>
+
+  <section>
+    <button class="btn btn-primary" id="build-btn" disabled>Build Components</button>
+  </section>
+
+  <section id="progress-section" style="display:none">
+    <div id="steps">
+      <div class="step" id="step-upload">
+        <span class="step-icon">⬆</span><span>Uploading photo…</span>
+      </div>
+      <div class="step" id="step-panel-iso">
+        <span class="step-icon">✂</span>
+        <span>Isolating fence panel…</span>
+        <span class="step-detail">NanoBanana</span>
+      </div>
+      <div class="step" id="step-post-iso">
+        <span class="step-icon">✂</span>
+        <span>Isolating fence post…</span>
+        <span class="step-detail">NanoBanana</span>
+      </div>
+      <div class="step" id="step-panel-3d">
+        <span class="step-icon">⚙</span>
+        <span>Generating panel 3D…</span>
+        <span class="step-detail">Hunyuan3D</span>
+      </div>
+      <div class="step" id="step-post-3d">
+        <span class="step-icon">⚙</span>
+        <span>Generating post 3D…</span>
+        <span class="step-detail">Hunyuan3D</span>
+      </div>
+    </div>
+    <p id="status-msg"></p>
+  </section>
+
+  <section id="result-section" style="display:none">
+    <div class="previews">
+      <div class="comp-card">
+        <p class="comp-label">Panel</p>
+        <canvas id="canvas-panel"></canvas>
+      </div>
+      <div class="comp-card">
+        <p class="comp-label">Post</p>
+        <canvas id="canvas-post"></canvas>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="fence-ar-btn" type="button"
+            style="margin-top:14px">Open Fence AR</button>
+  </section>
+</div>
+
+<script type="module">
+import { fal } from '@fal-ai/client';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const HUNYUAN = 'fal-ai/hunyuan-3d/v3.1/pro/image-to-3d';
+const NANO_BANANA = 'fal-ai/nano-banana-pro/edit';
+
+const PANEL_PROMPT =
+  'Extract ONLY the flat fence panel between the posts — the main infill section ' +
+  'WITHOUT the vertical end posts. Show it straight-on from the front, centered, ' +
+  'on a plain pure-white seamless background. Clean studio product photo, soft even ' +
+  'lighting, no shadows, no ground.';
+
+const POST_PROMPT =
+  'Extract ONLY a single vertical fence post. Show it straight-on from the front, ' +
+  'centered, on a plain pure-white seamless background. No fence panels attached. ' +
+  'Clean studio product photo, soft even lighting, no shadows.';
+
+// ---- state ----------------------------------------------------------------
+let fenceFile = null;
+let panelGlbUrl = null;
+let postGlbUrl  = null;
+
+// ---- API key + settings ---------------------------------------------------
+const keyInput     = document.getElementById('api-key');
+const apiBaseInput = document.getElementById('api-base');
+keyInput.value     = localStorage.getItem('fal_api_key') || '';
+apiBaseInput.value = localStorage.getItem('ar_api_base') || 'http://localhost:8000';
+keyInput.addEventListener('change', () => localStorage.setItem('fal_api_key', keyInput.value.trim()));
+apiBaseInput.addEventListener('change', () => localStorage.setItem('ar_api_base', apiBaseInput.value.trim()));
+
+// ---- dropzone -------------------------------------------------------------
+const dz = document.getElementById('dz-fence');
+const fileInput = dz.querySelector('input[type=file]');
+const clearBtn  = dz.querySelector('.clear-btn');
+
+fileInput.addEventListener('change', () => {
+  fenceFile = fileInput.files[0] || null;
+  if (fenceFile) { showDropPreview(fenceFile); } else clearDropPreview();
+  updateBuildBtn();
+});
+clearBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  fenceFile = null; fileInput.value = ''; clearDropPreview(); updateBuildBtn();
+});
+dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.style.borderColor = '#666'; });
+dz.addEventListener('dragleave', () => { dz.style.borderColor = ''; });
+dz.addEventListener('drop', (e) => {
+  e.preventDefault(); dz.style.borderColor = '';
+  const f = e.dataTransfer.files[0];
+  if (!f || !f.type.startsWith('image/')) return;
+  fenceFile = f; fileInput.value = '';
+  showDropPreview(f); updateBuildBtn();
+});
+
+function showDropPreview(file) {
+  let img = dz.querySelector('img.preview');
+  if (!img) { img = document.createElement('img'); img.className = 'preview'; dz.prepend(img); }
+  img.src = URL.createObjectURL(file);
+  dz.classList.add('has-image');
+}
+function clearDropPreview() {
+  const img = dz.querySelector('img.preview');
+  if (img) { URL.revokeObjectURL(img.src); img.remove(); }
+  dz.classList.remove('has-image');
+}
+function updateBuildBtn() {
+  document.getElementById('build-btn').disabled = !fenceFile;
+}
+
+// ---- build ----------------------------------------------------------------
+document.getElementById('build-btn').addEventListener('click', build);
+
+function stepDone(id)   { const s = document.getElementById(id); s.className = 'step done'; s.querySelector('.step-icon').textContent = '✓'; }
+function stepActive(id) { document.getElementById(id).className = 'step active'; }
+function stepError(id)  { const s = document.getElementById(id); s.className = 'step error'; s.querySelector('.step-icon').textContent = '✗'; }
+
+const statusMsg = document.getElementById('status-msg');
+const setStatus = (s) => { statusMsg.textContent = s; statusMsg.className = ''; };
+const setError  = (s) => { statusMsg.textContent = s; statusMsg.className = 'error'; };
+
+async function nanaBananaEdit(imageUrl, prompt) {
+  const result = await fal.subscribe(NANO_BANANA, {
+    input: { image_url: imageUrl, prompt },
+    logs: false,
+  });
+  const url = result?.data?.image?.url || result?.image?.url;
+  if (!url) throw new Error('NanoBanana returned no image URL');
+  return url;
+}
+
+async function hunyuan3d(imageUrl) {
+  let started = false;
+  const result = await fal.subscribe(HUNYUAN, {
+    input: { image_url: imageUrl },
+    logs: true,
+    onQueueUpdate: (update) => {
+      if (update.status === 'IN_PROGRESS' && !started) { started = true; }
+      const msg = update.logs?.at(-1)?.message;
+      if (msg) setStatus(msg);
+    },
+  });
+  const url = result?.data?.model_glb?.url
+    || result?.data?.model_urls?.glb?.url
+    || result?.model_glb?.url
+    || result?.model_urls?.glb?.url;
+  if (!url) throw new Error('Hunyuan3D returned no GLB URL');
+  return url;
+}
+
+async function build() {
+  const key = keyInput.value.trim();
+  if (!key) { alert('Enter your fal.ai API key first.'); keyInput.focus(); return; }
+  localStorage.setItem('fal_api_key', key);
+  fal.config({ credentials: key });
+
+  document.getElementById('build-btn').disabled = true;
+  document.getElementById('progress-section').style.display = '';
+  document.getElementById('result-section').style.display = 'none';
+
+  try {
+    // 1. upload
+    stepActive('step-upload');
+    setStatus('Uploading fence photo…');
+    const fenceUrl = await fal.storage.upload(fenceFile);
+    stepDone('step-upload');
+
+    // 2. isolate panel
+    stepActive('step-panel-iso');
+    setStatus('Isolating panel…');
+    const panelIsoUrl = await nanaBananaEdit(fenceUrl, PANEL_PROMPT);
+    stepDone('step-panel-iso');
+
+    // 3. isolate post
+    stepActive('step-post-iso');
+    setStatus('Isolating post…');
+    const postIsoUrl = await nanaBananaEdit(fenceUrl, POST_PROMPT);
+    stepDone('step-post-iso');
+
+    // 4. panel 3D
+    stepActive('step-panel-3d');
+    setStatus('Generating panel 3D model…');
+    panelGlbUrl = await hunyuan3d(panelIsoUrl);
+    stepDone('step-panel-3d');
+
+    // 5. post 3D
+    stepActive('step-post-3d');
+    setStatus('Generating post 3D model…');
+    postGlbUrl = await hunyuan3d(postIsoUrl);
+    stepDone('step-post-3d');
+
+    setStatus('Done! Tap "Open Fence AR" to assemble your fence.');
+    showResults();
+
+  } catch (e) {
+    setError('Error: ' + (e.message || String(e)));
+    document.getElementById('build-btn').disabled = false;
+  }
+}
+
+// ---- Three.js preview (two canvases) -------------------------------------
+function makePreview(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  const rend = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  rend.outputColorSpace = THREE.SRGBColorSpace;
+  const w = canvas.parentElement.clientWidth;
+  rend.setSize(w, w);
+  rend.setPixelRatio(window.devicePixelRatio);
+
+  const sc = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(60, 1, 0.01, 100);
+  cam.position.set(0, 0.4, 2);
+  sc.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.0));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.0);
+  dl.position.set(5, 10, 7);
+  sc.add(dl);
+  const ctrl = new OrbitControls(cam, canvas);
+  ctrl.target.set(0, 0, 0);
+  ctrl.update();
+  rend.setAnimationLoop(() => { ctrl.update(); rend.render(sc, cam); });
+  return { rend, sc, cam, ctrl };
+}
+
+function loadIntoPreview({ sc, cam, ctrl }, glbUrl) {
+  sc.children.filter(c => c.userData.isModel).forEach(c => sc.remove(c));
+  new GLTFLoader().load(glbUrl, (gltf) => {
+    const model = gltf.scene;
+    model.userData.isModel = true;
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3()).length();
+    const centre = box.getCenter(new THREE.Vector3());
+    model.position.sub(centre);
+    model.scale.setScalar(1.5 / size);
+    sc.add(model);
+    ctrl.target.set(0, 0, 0);
+    ctrl.update();
+  });
+}
+
+let panelPreview = null;
+let postPreview  = null;
+
+function showResults() {
+  document.getElementById('result-section').style.display = '';
+  if (!panelPreview) panelPreview = makePreview('canvas-panel');
+  if (!postPreview)  postPreview  = makePreview('canvas-post');
+  loadIntoPreview(panelPreview, panelGlbUrl);
+  loadIntoPreview(postPreview,  postGlbUrl);
+}
+
+// ---- open fence AR --------------------------------------------------------
+document.getElementById('fence-ar-btn').addEventListener('click', () => {
+  if (!panelGlbUrl || !postGlbUrl) return;
+  const apiBase = apiBaseInput.value.trim() || 'http://localhost:8000';
+  const layoutApi = apiBase.replace(/\/$/, '') + '/api/fence/layout';
+  const fenceName = fenceFile?.name?.replace(/\.[^.]+$/, '') || 'Fence';
+
+  const url = new URL('/ar-fence.html', location.href);
+  url.searchParams.set('panel_glb',  panelGlbUrl);
+  url.searchParams.set('post_glb',   postGlbUrl);
+  url.searchParams.set('layout_api', layoutApi);
+  url.searchParams.set('name', fenceName);
+  url.searchParams.set('back', location.href);
+  location.href = url.toString();
+});
+</script>
+</body>
+</html>

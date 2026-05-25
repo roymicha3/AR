@@ -16,6 +16,14 @@ body {
   border-bottom: 1px solid #222;
 }
 
+.app-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .app-header h1 {
   font-size: 1.4rem;
   font-weight: 600;
@@ -25,6 +33,58 @@ body {
   margin-top: 4px;
   font-size: 13px;
   color: #888;
+}
+
+.app-nav {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.nav-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: #bbb;
+  text-decoration: none;
+  padding: 7px 14px;
+  border: 1px solid #2a2a2a;
+  border-radius: 20px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.nav-link:hover {
+  color: #eee;
+  border-color: #444;
+}
+
+.category-filter {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.filter-btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border: 1px solid #2a2a2a;
+  border-radius: 16px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.filter-btn:hover {
+  border-color: #444;
+  color: #ccc;
+}
+
+.filter-btn.active {
+  background: #eee;
+  color: #111;
+  border-color: #eee;
 }
 
 main {

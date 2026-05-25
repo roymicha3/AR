@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fence AR</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #111;
+               color: #eee; font: 14px/1.4 -apple-system, BlinkMacSystemFont,
+               "Segoe UI", sans-serif; }
+  canvas { display: block; }
+  #info { position: fixed; top: 12px; left: 12px; right: 12px;
+          display: flex; justify-content: space-between; align-items: center;
+          pointer-events: none; z-index: 5; }
+  #info .title { font-weight: 600; pointer-events: auto;
+                 background: rgba(0,0,0,0.45); padding: 6px 10px;
+                 border-radius: 16px; }
+  #info .back { color: #eee; opacity: 0.85;
+                pointer-events: auto; background: rgba(0,0,0,0.45);
+                padding: 6px 10px; border-radius: 16px;
+                border: none; cursor: pointer; }
+  #info .back:hover { opacity: 1; }
+  #overlay { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+  #overlay > * { pointer-events: auto; }
+  #status { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+            background: rgba(0,0,0,0.55); padding: 8px 14px; border-radius: 12px;
+            font-size: 13px; max-width: 80vw; text-align: center; }
+  #panel { position: absolute; right: 12px; bottom: 96px; width: 240px;
+           background: rgba(0,0,0,0.65); padding: 12px 14px; border-radius: 12px;
+           backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+           display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+  #panel .stat { display: flex; justify-content: space-between; color: #ddd; }
+  #panel .stat b { font-weight: 600; }
+  #panel .warn { color: #ffcf6b; }
+  #panel button { background: transparent; color: #ddd; border: 1px solid #444;
+                  padding: 8px; border-radius: 8px; font-weight: 500; cursor: pointer; }
+  @media (max-width: 480px) {
+    #panel { left: 12px; right: 12px; width: auto; }
+    #status { bottom: 200px; }
+  }
+  button.xr-button, .xr-button { position: fixed !important;
+    bottom: 24px !important; left: 50% !important;
+    transform: translateX(-50%) !important;
+    padding: 12px 24px !important; border: 0 !important;
+    border-radius: 24px !important; background: #fff !important;
+    color: #111 !important; font: 600 14px -apple-system, sans-serif !important;
+    z-index: 6 !important; cursor: pointer; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="info">
+  <div class="title" id="page-title">Fence AR</div>
+  <button class="back" id="back-btn" onclick="history.back()">← back</button>
+</div>
+<div id="overlay">
+  <div id="status">Loading components…</div>
+  <div id="panel">
+    <div class="stat"><span>Panels</span><b id="n-panels">–</b></div>
+    <div class="stat"><span>Posts</span><b id="n-posts">–</b></div>
+    <div class="stat" id="fit-row"><span>Fit</span><b id="fit-val">–</b></div>
+    <button id="reset-btn" type="button">Reset run</button>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { ARButton } from 'three/addons/webxr/ARButton.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const params = new URLSearchParams(location.search);
+const panelGlbUrl = params.get('panel_glb') || '';
+const postGlbUrl  = params.get('post_glb')  || '';
+const layoutApi   = params.get('layout_api') || '/api/fence/layout';
+const modelName   = params.get('name') || 'Fence';
+
+document.getElementById('page-title').textContent = `Fence AR · ${modelName}`;
+document.title = `Fence AR — ${modelName}`;
+
+const statusEl = document.getElementById('status');
+const setStatus = (m) => { statusEl.textContent = m; };
+const nPanelsEl = document.getElementById('n-panels');
+const nPostsEl  = document.getElementById('n-posts');
+const fitValEl  = document.getElementById('fit-val');
+const fitRowEl  = document.getElementById('fit-row');
+
+if (!panelGlbUrl || !postGlbUrl) {
+  setStatus('Missing ?panel_glb= or ?post_glb= query parameter.');
+}
+
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  70, window.innerWidth / window.innerHeight, 0.01, 100);
+camera.position.set(0, 1.6, 4);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.0));
+const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+dir.position.set(5, 10, 7);
+scene.add(dir);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.5, 0);
+controls.update();
+
+const reticle = new THREE.Mesh(
+  new THREE.RingGeometry(0.07, 0.10, 32).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0xffffff })
+);
+reticle.matrixAutoUpdate = false;
+reticle.visible = false;
+scene.add(reticle);
+
+const fenceGroup = new THREE.Group();
+scene.add(fenceGroup);
+
+const loader = new GLTFLoader();
+let panelComp = null;
+let postComp  = null;
+
+// Bake world matrix into geometry so per-instance transforms map directly.
+// Components are expected to be single-mesh; we take the first and warn on more.
+function extractComponent(gltf) {
+  gltf.scene.updateWorldMatrix(true, true);
+  let mesh = null;
+  let count = 0;
+  gltf.scene.traverse((o) => { if (o.isMesh) { count++; if (!mesh) mesh = o; } });
+  if (!mesh) throw new Error('component GLB has no mesh');
+  if (count > 1) console.warn(`component has ${count} meshes; instancing the first only`);
+  const geom = mesh.geometry.clone();
+  geom.applyMatrix4(mesh.matrixWorld);
+  geom.computeBoundingBox();
+  const size = new THREE.Vector3();
+  geom.boundingBox.getSize(size);
+  return { geom, material: mesh.material, width: size.x };
+}
+
+function loadComponent(url) {
+  return new Promise((resolve, reject) => {
+    loader.load(url, (gltf) => {
+      try { resolve(extractComponent(gltf)); } catch (e) { reject(e); }
+    }, undefined, reject);
+  });
+}
+
+function buildInstanced(comp, placements) {
+  const mesh = new THREE.InstancedMesh(comp.geom, comp.material, placements.length);
+  const m = new THREE.Matrix4();
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scl = new THREE.Vector3();
+  placements.forEach((p, i) => {
+    pos.set(p.position[0], p.position[1], p.position[2]);
+    quat.set(p.rotation[0], p.rotation[1], p.rotation[2], p.rotation[3]);
+    scl.set(p.scale[0], p.scale[1], p.scale[2]);
+    m.compose(pos, quat, scl);
+    mesh.setMatrixAt(i, m);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  return mesh;
+}
+
+function clearFence() {
+  for (let i = fenceGroup.children.length - 1; i >= 0; i--) {
+    fenceGroup.remove(fenceGroup.children[i]);
+  }
+}
+
+async function fetchLayout(path) {
+  const spec = {
+    panel: { asset_id: 'panel', nominal_width: panelComp.width },
+    post:  { asset_id: 'post',  nominal_width: postComp.width  },
+    path,
+    closed: false,
+    fit: 'stretch',
+  };
+  const r = await fetch(layoutApi, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(spec),
+  });
+  if (!r.ok) throw new Error('layout failed: HTTP ' + r.status);
+  return r.json();
+}
+
+function rebuild(layout) {
+  clearFence();
+  fenceGroup.add(buildInstanced(postComp,  layout.posts));
+  fenceGroup.add(buildInstanced(panelComp, layout.panels));
+  nPanelsEl.textContent = layout.counts.panels;
+  nPostsEl.textContent  = layout.counts.posts;
+  fitValEl.textContent  = layout.within_tolerance ? 'ok' : 'stretched';
+  fitRowEl.classList.toggle('warn', !layout.within_tolerance);
+}
+
+async function layoutRun(a, b) {
+  try {
+    const layout = await fetchLayout([a, b]);
+    rebuild(layout);
+    const warn = layout.within_tolerance ? '' : ' (panels stretched > tolerance)';
+    setStatus(`${layout.counts.panels} panels · ${layout.counts.posts} posts${warn}`);
+  } catch (e) {
+    setStatus('Layout error: ' + (e.message || e));
+  }
+}
+
+if (panelGlbUrl && postGlbUrl) {
+  Promise.all([loadComponent(panelGlbUrl), loadComponent(postGlbUrl)])
+    .then(([panel, post]) => {
+      panelComp = panel;
+      postComp  = post;
+      const span = panelComp.width * 3;
+      return layoutRun([0, 0, 0], [span, 0, 0]).then(() => {
+        controls.target.set(span / 2, 0.4, 0);
+        controls.update();
+        setStatus('Preview run. Tap "START AR", then tap start + end on a surface.');
+      });
+    })
+    .catch((e) => setStatus('Failed to load components: ' + (e.message || e)));
+}
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  clearFence();
+  startPoint = null;
+  nPanelsEl.textContent = nPostsEl.textContent = '–';
+  fitValEl.textContent = '–';
+  fitRowEl.classList.remove('warn');
+  setStatus('Run cleared. Tap start + end on a surface.');
+});
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+if (isIOS) {
+  setStatus('WebXR AR is not available on iOS Safari. Use Android Chrome.');
+  const card = document.createElement('div');
+  card.style.cssText = `position:fixed;bottom:24px;left:50%;
+    transform:translateX(-50%);background:rgba(30,30,30,0.92);
+    color:#eee;padding:16px 20px;border-radius:16px;text-align:center;
+    font-size:14px;max-width:300px;z-index:10;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);`;
+  card.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px">WebXR not supported on iOS</div>
+    <div style="font-size:12px;opacity:0.75;margin-bottom:12px">
+      Fence AR requires WebXR hit-test (Android Chrome).
+    </div>
+    <button onclick="history.back()" style="background:#fff;color:#111;
+      font-weight:600;padding:10px 20px;border-radius:24px;
+      border:none;font-size:14px;cursor:pointer;">← Go back</button>
+  `;
+  document.body.appendChild(card);
+} else {
+  const arButton = ARButton.createButton(renderer, {
+    requiredFeatures: ['hit-test'],
+    optionalFeatures: ['dom-overlay'],
+    domOverlay: { root: document.getElementById('overlay') }
+  });
+  arButton.classList.add('xr-button');
+  document.body.appendChild(arButton);
+}
+
+let hitTestSource = null;
+let localSpace = null;
+let startPoint = null;
+
+renderer.xr.addEventListener('sessionstart', async () => {
+  clearFence();
+  startPoint = null;
+  setStatus('Find a surface, then tap the START of the fence.');
+  const session = renderer.xr.getSession();
+  const viewerSpace = await session.requestReferenceSpace('viewer');
+  hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+  localSpace = await session.requestReferenceSpace('local');
+});
+
+renderer.xr.addEventListener('sessionend', () => {
+  hitTestSource = null;
+  localSpace = null;
+  reticle.visible = false;
+  startPoint = null;
+});
+
+const controller = renderer.xr.getController(0);
+controller.addEventListener('select', () => {
+  if (!reticle.visible || !panelComp || !postComp) return;
+  const p = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
+  if (!startPoint) {
+    startPoint = [p.x, p.y, p.z];
+    setStatus('Start set. Tap the END of the fence.');
+  } else {
+    layoutRun(startPoint, [p.x, p.y, p.z]);
+    startPoint = null;
+  }
+});
+scene.add(controller);
+
+renderer.setAnimationLoop((time, frame) => {
+  if (frame && hitTestSource && localSpace) {
+    const hits = frame.getHitTestResults(hitTestSource);
+    if (hits.length) {
+      const pose = hits[0].getPose(localSpace);
+      reticle.visible = true;
+      reticle.matrix.fromArray(pose.transform.matrix);
+    } else {
+      reticle.visible = false;
+    }
+  } else {
+    controls.update();
+  }
+  renderer.render(scene, camera);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

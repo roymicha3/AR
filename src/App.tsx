@@ -7,8 +7,16 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>AR Model Viewer</h1>
-        <p className="app-subtitle">Browse models and open them in AR on your device</p>
+        <div className="app-header-row">
+          <div>
+            <h1>AR Model Viewer</h1>
+            <p className="app-subtitle">Browse models and open them in AR on your device</p>
+          </div>
+          <nav className="app-nav">
+            <a className="nav-link" href="/ar-generate.html">Generate 3D</a>
+            <a className="nav-link" href="/ar-fence-builder.html">Fence Builder</a>
+          </nav>
+        </div>
       </header>
       <main>
         <ArCatalog base={API_BASE} />

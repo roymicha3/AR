@@ -7,5 +7,14 @@
     "ar_url": "",
     "glb_local_url": "/models/lattice.glb",
     "usdz_local_url": "/models/lattice.usdz"
+  },
+  {
+    "id": "fence-example",
+    "name": "Fence (example)",
+    "category": "Fence",
+    "thumbnail_url": null,
+    "ar_url": "/ar-fence.html?panel_glb=/models/fence__panel.glb&post_glb=/models/fence__post.glb&layout_api=http://localhost:8000/api/fence/layout&name=Fence",
+    "glb_local_url": null,
+    "usdz_local_url": null
   }
 ]
