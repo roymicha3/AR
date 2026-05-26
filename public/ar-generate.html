@@ -416,7 +416,8 @@ async function generate() {
     setStatus('Done!');
     showResult(glbUrl);
   } catch (e) {
-    setError('Error: ' + (e.message || String(e)));
+    const detail = e.body ? JSON.stringify(e.body) : (e.message || String(e));
+    setError('Error: ' + detail);
     document.getElementById('generate-btn').disabled = false;
   }
 }
@@ -427,13 +428,18 @@ async function generateFal(key) {
   buildSteps(STEPS_FAL);
 
   stepActive('upload');
-  const slots     = ['front', 'back', 'left', 'right'];
-  const slotKeys  = ['image_url', 'back_image_url', 'left_image_url', 'right_image_url'];
-  const input = {};
-  for (let i = 0; i < slots.length; i++) {
-    const f = falFiles[slots[i]]; if (!f) continue;
-    setStatus(`Uploading ${slots[i]} view…`);
-    input[slotKeys[i]] = await fal.storage.upload(f);
+  setStatus('Uploading front view…');
+  const input = { image_url: await fal.storage.upload(falFiles.front) };
+  // upload additional views if provided
+  const extraSlots = [
+    { file: falFiles.back,  key: 'back_image_url'  },
+    { file: falFiles.left,  key: 'left_image_url'  },
+    { file: falFiles.right, key: 'right_image_url' },
+  ];
+  for (const { file, key } of extraSlots) {
+    if (!file) continue;
+    setStatus(`Uploading ${key.replace('_image_url', '')} view…`);
+    input[key] = await fal.storage.upload(file);
   }
   stepDone('upload');
 
@@ -441,7 +447,7 @@ async function generateFal(key) {
   setStatus('Submitting to Hunyuan3D queue…');
   let queueActive = false;
 
-  const result = await fal.subscribe('fal-ai/hunyuan-3d/v3.1/pro/image-to-3d', {
+  const result = await fal.subscribe('fal-ai/hunyuan3d-2', {
     input,
     logs: true,
     onQueueUpdate: update => {
