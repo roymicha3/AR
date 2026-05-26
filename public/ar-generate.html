@@ -21,19 +21,19 @@
   input[type=text], input[type=password] {
     width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a;
     border-radius: 8px; padding: 9px 12px; color: #eee; font-size: 14px; }
-  input[type=text]:focus, input[type=password]:focus {
-    outline: none; border-color: #444; }
+  input[type=text]:focus, input[type=password]:focus { outline: none; border-color: #444; }
 
-  /* provider tabs */
-  .provider-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+  /* model tabs */
+  .model-tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
   .tab { font-size: 13px; font-weight: 500; padding: 6px 16px;
          border: 1px solid #2a2a2a; border-radius: 20px;
          background: transparent; color: #888; cursor: pointer;
          transition: border-color 0.15s, color 0.15s, background 0.15s; }
   .tab:hover { border-color: #444; color: #ccc; }
   .tab.active { background: #eee; color: #111; border-color: #eee; }
+  .tab-desc { font-size: 12px; color: #555; margin-bottom: 20px; }
 
-  /* dropzones */
+  /* multi-view grid */
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .dropzone { border: 1px dashed #333; border-radius: 10px; aspect-ratio: 1;
               display: flex; flex-direction: column; align-items: center;
@@ -42,7 +42,6 @@
               position: relative; overflow: hidden; background: #161616; }
   .dropzone:hover { border-color: #555; background: #1a1a1a; }
   .dropzone.has-image { border-style: solid; border-color: #444; }
-  .dropzone.required { border-color: #333; }
   .dropzone img { position: absolute; inset: 0; width: 100%; height: 100%;
                   object-fit: cover; border-radius: 9px; }
   .dropzone .label { font-size: 11px; color: #666; font-weight: 500;
@@ -57,7 +56,7 @@
   .dropzone.has-image .clear-btn { display: flex; }
   input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
-  /* single large dropzone for Meshy/Tripo */
+  /* single dropzone */
   .dropzone-single { border: 1px dashed #333; border-radius: 10px; min-height: 180px;
                      display: flex; flex-direction: column; align-items: center;
                      justify-content: center; gap: 8px; cursor: pointer;
@@ -77,8 +76,7 @@
   .dropzone-single.has-image .clear-btn { display: flex; }
 
   .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 10px;
-         font-size: 15px; font-weight: 600; cursor: pointer;
-         transition: opacity 0.15s; }
+         font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
   .btn-primary { background: #fff; color: #111; }
   .btn-primary:hover { opacity: 0.88; }
   .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -121,26 +119,29 @@
     <h1>Generate 3D Model</h1>
   </header>
 
-  <!-- Provider tabs -->
-  <div class="provider-tabs">
-    <button class="tab active" data-provider="fal">fal.ai</button>
-    <button class="tab" data-provider="meshy">Meshy</button>
-    <button class="tab" data-provider="tripo">Tripo</button>
+  <!-- Model tabs -->
+  <div class="model-tabs">
+    <button class="tab active" data-model="hunyuan">Hunyuan3D</button>
+    <button class="tab" data-model="meshy">Meshy v6</button>
+    <button class="tab" data-model="tripo">Tripo v2.5</button>
   </div>
+  <p class="tab-desc" id="model-desc">Multi-view · High quality · Up to 8 angles</p>
 
-  <!-- API key -->
+  <!-- fal.ai API key (shared by all models) -->
   <section>
-    <label id="key-label">fal.ai API Key</label>
+    <label>fal.ai API Key</label>
     <input type="password" id="api-key" placeholder="key-xxxxxxxxxxxxxxxx"
            autocomplete="off" spellcheck="false">
-    <p class="hint" id="key-hint">Stored locally in your browser. Get yours at fal.ai/dashboard.</p>
+    <p class="hint">All models run via fal.ai — one key for all three. Get yours at
+      <a href="https://fal.ai/dashboard" target="_blank" style="color:#888">fal.ai/dashboard</a>.
+    </p>
   </section>
 
-  <!-- fal.ai: multi-view -->
-  <section id="images-fal">
+  <!-- Hunyuan: multi-view -->
+  <section id="images-multi">
     <label>Reference Images — front is required; more views = better quality</label>
     <div class="grid">
-      <div class="dropzone required" data-slot="front">
+      <div class="dropzone" data-slot="front">
         <span class="required-badge">REQUIRED</span>
         <button class="clear-btn" type="button" aria-label="Remove">×</button>
         <input type="file" accept="image/*">
@@ -149,29 +150,29 @@
       <div class="dropzone" data-slot="back">
         <button class="clear-btn" type="button" aria-label="Remove">×</button>
         <input type="file" accept="image/*">
-        <span class="label">Back view (optional)</span>
+        <span class="label">Back (optional)</span>
       </div>
       <div class="dropzone" data-slot="left">
         <button class="clear-btn" type="button" aria-label="Remove">×</button>
         <input type="file" accept="image/*">
-        <span class="label">Left view (optional)</span>
+        <span class="label">Left (optional)</span>
       </div>
       <div class="dropzone" data-slot="right">
         <button class="clear-btn" type="button" aria-label="Remove">×</button>
         <input type="file" accept="image/*">
-        <span class="label">Right view (optional)</span>
+        <span class="label">Right (optional)</span>
       </div>
     </div>
   </section>
 
   <!-- Meshy / Tripo: single image -->
   <section id="images-single" style="display:none">
-    <label id="single-label">Reference Image</label>
+    <label>Reference Image — clean front-view photo recommended</label>
     <div class="dropzone-single" id="dz-single">
       <button class="clear-btn" type="button" aria-label="Remove">×</button>
       <input type="file" accept="image/*">
       <span class="label">Drop or click to upload</span>
-      <span class="sub" id="single-sub">Clean front-view photo on white/neutral background</span>
+      <span class="sub">Best results: white/neutral background, full object visible</span>
     </div>
   </section>
 
@@ -185,9 +186,7 @@
   </section>
 
   <section id="result-section" style="display:none">
-    <div id="preview-wrap">
-      <canvas id="preview-canvas"></canvas>
-    </div>
+    <div id="preview-wrap"><canvas id="preview-canvas"></canvas></div>
     <div class="result-actions">
       <button class="btn btn-primary" id="ar-btn" type="button">Open in AR</button>
       <button class="btn btn-outline" id="save-btn" type="button">Save to Library</button>
@@ -201,410 +200,218 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ---- provider state -------------------------------------------------------
-const PROVIDERS = {
-  fal: {
-    label: 'fal.ai API Key',
-    placeholder: 'key-xxxxxxxxxxxxxxxx',
-    hint: 'Get yours at fal.ai/dashboard',
-    storageKey: 'fal_api_key',
+// ---- model definitions ----------------------------------------------------
+const MODELS = {
+  hunyuan: {
+    label: 'Hunyuan3D',
+    desc: 'Multi-view · High quality · Up to 8 angles',
+    endpoint: 'fal-ai/hunyuan-3d/v3.1/pro/image-to-3d',
+    multiView: true,
+    extractGlb: d => d?.model_glb?.url || d?.model_urls?.glb?.url || d?.model_urls?.glb,
   },
   meshy: {
-    label: 'Meshy API Key',
-    placeholder: 'msy_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    hint: 'Get yours at meshy.ai/account/api-keys',
-    storageKey: 'meshy_api_key',
+    label: 'Meshy v6',
+    desc: 'Fast · PBR textures · Multiple export formats',
+    endpoint: 'fal-ai/meshy/v6/image-to-3d',
+    multiView: false,
+    extractGlb: d => d?.model_glb?.url || d?.model_urls?.glb?.url || d?.model_urls?.glb,
   },
   tripo: {
-    label: 'Tripo API Key',
-    placeholder: 'tsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    hint: 'Get yours at tripo3d.ai/app/api-keys',
-    storageKey: 'tripo_api_key',
+    label: 'Tripo v2.5',
+    desc: 'Fast · Affordable · PBR materials',
+    endpoint: 'tripo3d/tripo/v2.5/image-to-3d',
+    multiView: false,
+    extractGlb: d => d?.model_mesh?.url || d?.pbr_model?.url,
   },
 };
 
-let currentProvider = 'fal';
+let currentModel = 'hunyuan';
 
-// ---- multi-view state (fal.ai) --------------------------------------------
-const falFiles = { front: null, back: null, left: null, right: null };
-
-// ---- single-image state (meshy/tripo) -------------------------------------
+// ---- image state ----------------------------------------------------------
+const multiFiles = { front: null, back: null, left: null, right: null };
 let singleFile = null;
-
-// ---- result state ---------------------------------------------------------
 let resultGlbUrl = null;
 let resultName = 'Generated Model';
 
-// ---- provider tabs --------------------------------------------------------
-const keyInput  = document.getElementById('api-key');
-const keyLabel  = document.getElementById('key-label');
-const keyHint   = document.getElementById('key-hint');
-const imagesFal    = document.getElementById('images-fal');
-const imagesSingle = document.getElementById('images-single');
+// ---- API key --------------------------------------------------------------
+const keyInput = document.getElementById('api-key');
+keyInput.value = localStorage.getItem('fal_api_key') || '';
+keyInput.addEventListener('change', () =>
+  localStorage.setItem('fal_api_key', keyInput.value.trim()));
 
+// ---- model tabs -----------------------------------------------------------
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
-    currentProvider = btn.dataset.provider;
-    applyProvider();
+    currentModel = btn.dataset.model;
+    applyModel();
   });
 });
 
-function applyProvider() {
-  const p = PROVIDERS[currentProvider];
-  keyLabel.textContent = p.label;
-  keyInput.placeholder = p.placeholder;
-  keyHint.textContent = p.hint;
-  keyInput.value = localStorage.getItem(p.storageKey) || '';
-
-  const isFal = currentProvider === 'fal';
-  imagesFal.style.display    = isFal ? '' : 'none';
-  imagesSingle.style.display = isFal ? 'none' : '';
-
-  if (currentProvider === 'meshy') {
-    document.getElementById('single-label').textContent =
-      'Reference Image — clean front view recommended';
-    document.getElementById('single-sub').textContent =
-      'Best results: white/neutral background, full object visible';
-  } else if (currentProvider === 'tripo') {
-    document.getElementById('single-label').textContent =
-      'Reference Image — single front view';
-    document.getElementById('single-sub').textContent =
-      'Clean photo, white background, full object visible';
-  }
-
+function applyModel() {
+  const m = MODELS[currentModel];
+  document.getElementById('model-desc').textContent = m.desc;
+  document.getElementById('images-multi').style.display  = m.multiView ? '' : 'none';
+  document.getElementById('images-single').style.display = m.multiView ? 'none' : '';
   updateGenerateBtn();
 }
 
-keyInput.addEventListener('change', () => {
-  localStorage.setItem(PROVIDERS[currentProvider].storageKey, keyInput.value.trim());
-});
-
-// ---- fal.ai dropzones -----------------------------------------------------
-document.querySelectorAll('#images-fal .dropzone').forEach(dz => {
+// ---- multi-view dropzones -------------------------------------------------
+document.querySelectorAll('#images-multi .dropzone').forEach(dz => {
   const slot = dz.dataset.slot;
-  const fileInput = dz.querySelector('input[type=file]');
-  const clearBtn  = dz.querySelector('.clear-btn');
+  const fi   = dz.querySelector('input[type=file]');
+  const clr  = dz.querySelector('.clear-btn');
 
-  fileInput.addEventListener('change', () => {
-    const f = fileInput.files[0]; if (!f) return;
-    falFiles[slot] = f; showFalPreview(dz, f); updateGenerateBtn();
+  fi.addEventListener('change', () => {
+    const f = fi.files[0]; if (!f) return;
+    multiFiles[slot] = f; setDropPreview(dz, f); updateGenerateBtn();
   });
-  clearBtn.addEventListener('click', e => {
-    e.stopPropagation(); falFiles[slot] = null; fileInput.value = '';
-    clearPreview(dz, false); updateGenerateBtn();
+  clr.addEventListener('click', e => {
+    e.stopPropagation(); multiFiles[slot] = null; fi.value = '';
+    clearDropPreview(dz); updateGenerateBtn();
   });
-  dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = '#666'; });
-  dz.addEventListener('dragleave', () => { dz.style.borderColor = ''; });
-  dz.addEventListener('drop', e => {
-    e.preventDefault(); dz.style.borderColor = '';
-    const f = e.dataTransfer.files[0];
-    if (!f || !f.type.startsWith('image/')) return;
-    falFiles[slot] = f; fileInput.value = ''; showFalPreview(dz, f); updateGenerateBtn();
-  });
+  bindDrag(dz, f => { multiFiles[slot] = f; fi.value = ''; setDropPreview(dz, f); updateGenerateBtn(); });
 });
 
-function showFalPreview(dz, file) {
+// ---- single dropzone ------------------------------------------------------
+const dzSingle = document.getElementById('dz-single');
+const sfi = dzSingle.querySelector('input[type=file]');
+const sclr = dzSingle.querySelector('.clear-btn');
+
+sfi.addEventListener('change', () => {
+  singleFile = sfi.files[0] || null;
+  if (singleFile) setDropPreview(dzSingle, singleFile); else clearDropPreview(dzSingle);
+  updateGenerateBtn();
+});
+sclr.addEventListener('click', e => {
+  e.stopPropagation(); singleFile = null; sfi.value = '';
+  clearDropPreview(dzSingle); updateGenerateBtn();
+});
+bindDrag(dzSingle, f => { singleFile = f; sfi.value = ''; setDropPreview(dzSingle, f); updateGenerateBtn(); });
+
+function setDropPreview(dz, file) {
   let img = dz.querySelector('img');
   if (!img) { img = document.createElement('img'); dz.prepend(img); }
   img.src = URL.createObjectURL(file);
   dz.classList.add('has-image');
 }
-
-// ---- single dropzone (meshy/tripo) ----------------------------------------
-const dzSingle = document.getElementById('dz-single');
-const singleFileInput = dzSingle.querySelector('input[type=file]');
-const singleClearBtn  = dzSingle.querySelector('.clear-btn');
-
-singleFileInput.addEventListener('change', () => {
-  singleFile = singleFileInput.files[0] || null;
-  if (singleFile) showSinglePreview(singleFile); else clearPreview(dzSingle, true);
-  updateGenerateBtn();
-});
-singleClearBtn.addEventListener('click', e => {
-  e.stopPropagation(); singleFile = null; singleFileInput.value = '';
-  clearPreview(dzSingle, true); updateGenerateBtn();
-});
-dzSingle.addEventListener('dragover', e => { e.preventDefault(); dzSingle.style.borderColor = '#666'; });
-dzSingle.addEventListener('dragleave', () => { dzSingle.style.borderColor = ''; });
-dzSingle.addEventListener('drop', e => {
-  e.preventDefault(); dzSingle.style.borderColor = '';
-  const f = e.dataTransfer.files[0];
-  if (!f || !f.type.startsWith('image/')) return;
-  singleFile = f; singleFileInput.value = ''; showSinglePreview(f); updateGenerateBtn();
-});
-
-function showSinglePreview(file) {
-  let img = dzSingle.querySelector('img');
-  if (!img) { img = document.createElement('img'); dzSingle.prepend(img); }
-  img.src = URL.createObjectURL(file);
-  dzSingle.classList.add('has-image');
-}
-
-function clearPreview(dz, isSingle) {
+function clearDropPreview(dz) {
   const img = dz.querySelector('img');
   if (img) { URL.revokeObjectURL(img.src); img.remove(); }
   dz.classList.remove('has-image');
 }
-
+function bindDrag(dz, onFile) {
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = '#666'; });
+  dz.addEventListener('dragleave', () => { dz.style.borderColor = ''; });
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.style.borderColor = '';
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) onFile(f);
+  });
+}
 function updateGenerateBtn() {
-  const hasImage = currentProvider === 'fal' ? !!falFiles.front : !!singleFile;
-  document.getElementById('generate-btn').disabled = !hasImage;
+  const ready = MODELS[currentModel].multiView ? !!multiFiles.front : !!singleFile;
+  document.getElementById('generate-btn').disabled = !ready;
 }
 
 // ---- steps UI -------------------------------------------------------------
-const STEPS_FAL = [
-  { id: 'upload',   icon: '⬆', label: 'Uploading images…'              },
-  { id: 'queue',    icon: '⏳', label: 'Queued for generation…'         },
-  { id: 'generate', icon: '⚙', label: 'Generating 3D model (60–120 s)…' },
-  { id: 'download', icon: '⬇', label: 'Fetching result…'               },
+const STEPS = [
+  { id: 'upload',   icon: '⬆', label: 'Uploading image…'      },
+  { id: 'queue',    icon: '⏳', label: 'Queued…'               },
+  { id: 'generate', icon: '⚙', label: 'Generating 3D model…'  },
+  { id: 'download', icon: '⬇', label: 'Fetching result…'      },
 ];
-const STEPS_MESHY = [
-  { id: 'submit',   icon: '⬆', label: 'Submitting to Meshy…'           },
-  { id: 'generate', icon: '⚙', label: 'Generating 3D model…'           },
-  { id: 'download', icon: '⬇', label: 'Fetching result…'               },
-];
-const STEPS_TRIPO = [
-  { id: 'upload',   icon: '⬆', label: 'Uploading image…'               },
-  { id: 'submit',   icon: '⬆', label: 'Submitting task…'               },
-  { id: 'generate', icon: '⚙', label: 'Generating 3D model…'           },
-  { id: 'download', icon: '⬇', label: 'Fetching result…'               },
-];
-
-function buildSteps(steps) {
-  const container = document.getElementById('steps');
-  container.innerHTML = '';
-  steps.forEach(s => {
+function buildSteps() {
+  const c = document.getElementById('steps'); c.innerHTML = '';
+  STEPS.forEach(s => {
     const el = document.createElement('div');
     el.className = 'step'; el.id = 'step-' + s.id;
     el.innerHTML = `<span class="step-icon">${s.icon}</span><span>${s.label}</span>`;
-    container.appendChild(el);
+    c.appendChild(el);
   });
 }
-
 const statusMsg = document.getElementById('status-msg');
 const setStatus = s => { statusMsg.textContent = s; statusMsg.className = ''; };
 const setError  = s => { statusMsg.textContent = s; statusMsg.className = 'error'; };
 const stepDone   = id => { const el = document.getElementById('step-' + id); if (el) { el.className = 'step done'; el.querySelector('.step-icon').textContent = '✓'; } };
 const stepActive = id => { const el = document.getElementById('step-' + id); if (el) el.className = 'step active'; };
-const stepErr    = id => { const el = document.getElementById('step-' + id); if (el) { el.className = 'step error'; el.querySelector('.step-icon').textContent = '✗'; } };
 
-// ---- generate entry point -------------------------------------------------
+// ---- generate -------------------------------------------------------------
 document.getElementById('generate-btn').addEventListener('click', generate);
 
 async function generate() {
   const key = keyInput.value.trim();
-  if (!key) { alert(`Enter your ${PROVIDERS[currentProvider].label} first.`); keyInput.focus(); return; }
-  localStorage.setItem(PROVIDERS[currentProvider].storageKey, key);
+  if (!key) { alert('Enter your fal.ai API key first.'); keyInput.focus(); return; }
+  localStorage.setItem('fal_api_key', key);
+  fal.config({ credentials: key });
 
   document.getElementById('generate-btn').disabled = true;
   document.getElementById('progress-section').style.display = '';
   document.getElementById('result-section').style.display = 'none';
+  buildSteps();
 
   try {
-    let glbUrl;
-    if (currentProvider === 'fal')   glbUrl = await generateFal(key);
-    if (currentProvider === 'meshy') glbUrl = await generateMeshy(key);
-    if (currentProvider === 'tripo') glbUrl = await generateTripo(key);
+    const model = MODELS[currentModel];
+
+    // 1. upload
+    stepActive('upload');
+    let input;
+    if (model.multiView) {
+      setStatus('Uploading front view…');
+      input = { input_image_url: await fal.storage.upload(multiFiles.front) };
+      for (const [slot, key] of [['back','back_image_url'],['left','left_image_url'],['right','right_image_url']]) {
+        if (!multiFiles[slot]) continue;
+        setStatus(`Uploading ${slot} view…`);
+        input[key] = await fal.storage.upload(multiFiles[slot]);
+      }
+    } else {
+      setStatus('Uploading image…');
+      input = { image_url: await fal.storage.upload(singleFile) };
+    }
+    stepDone('upload');
+
+    // 2-3. queue + generate
+    stepActive('queue');
+    setStatus(`Submitting to ${model.label}…`);
+    let inProgress = false;
+
+    const result = await fal.subscribe(model.endpoint, {
+      input,
+      logs: true,
+      onQueueUpdate: update => {
+        if (update.status === 'IN_QUEUE')
+          setStatus(`Queue position: ${update.queue_position ?? '…'}`);
+        if (update.status === 'IN_PROGRESS' && !inProgress) {
+          stepDone('queue'); stepActive('generate'); inProgress = true;
+        }
+        if (update.status === 'IN_PROGRESS') {
+          const msg = update.logs?.at(-1)?.message; if (msg) setStatus(msg);
+        }
+      },
+    });
+    stepDone('generate');
+
+    // 4. extract GLB URL
+    stepActive('download');
+    const data = result?.data ?? result;
+    const glbUrl = model.extractGlb(data);
+    if (!glbUrl) throw new Error(
+      `No GLB URL in response. Raw: ${JSON.stringify(data).slice(0, 300)}`
+    );
+    stepDone('download');
 
     resultGlbUrl = glbUrl;
-    resultName = (currentProvider === 'fal' ? falFiles.front?.name : singleFile?.name)
+    resultName = (model.multiView ? multiFiles.front?.name : singleFile?.name)
                    ?.replace(/\.[^.]+$/, '') || 'model';
     setStatus('Done!');
     showResult(glbUrl);
+
   } catch (e) {
     const detail = e.body ? JSON.stringify(e.body) : (e.message || String(e));
     setError('Error: ' + detail);
     document.getElementById('generate-btn').disabled = false;
   }
-}
-
-// ---- fal.ai generation ----------------------------------------------------
-async function generateFal(key) {
-  fal.config({ credentials: key });
-  buildSteps(STEPS_FAL);
-
-  stepActive('upload');
-  setStatus('Uploading front view…');
-  const input = { image_url: await fal.storage.upload(falFiles.front) };
-  // upload additional views if provided
-  const extraSlots = [
-    { file: falFiles.back,  key: 'back_image_url'  },
-    { file: falFiles.left,  key: 'left_image_url'  },
-    { file: falFiles.right, key: 'right_image_url' },
-  ];
-  for (const { file, key } of extraSlots) {
-    if (!file) continue;
-    setStatus(`Uploading ${key.replace('_image_url', '')} view…`);
-    input[key] = await fal.storage.upload(file);
-  }
-  stepDone('upload');
-
-  stepActive('queue');
-  setStatus('Submitting to Hunyuan3D queue…');
-  let queueActive = false;
-
-  const result = await fal.subscribe('fal-ai/hunyuan3d-2', {
-    input,
-    logs: true,
-    onQueueUpdate: update => {
-      if (update.status === 'IN_QUEUE')
-        setStatus(`Queue position: ${update.queue_position ?? '…'}`);
-      if (update.status === 'IN_PROGRESS' && !queueActive) {
-        setStepDone('queue'); stepActive('generate'); queueActive = true;
-      }
-      if (update.status === 'IN_PROGRESS') {
-        const msg = update.logs?.at(-1)?.message; if (msg) setStatus(msg);
-      }
-    },
-  });
-  stepDone('generate');
-  stepActive('download');
-
-  const glbUrl = result?.data?.model_glb?.url
-    || result?.data?.model_urls?.glb?.url
-    || result?.model_glb?.url
-    || result?.model_urls?.glb?.url;
-  if (!glbUrl) throw new Error('No GLB URL in fal.ai response');
-  stepDone('download');
-  return glbUrl;
-}
-
-function setStepDone(id) { stepDone(id); } // alias used in fal callback
-
-// ---- Meshy generation -----------------------------------------------------
-async function generateMeshy(key) {
-  buildSteps(STEPS_MESHY);
-  stepActive('submit');
-  setStatus('Submitting to Meshy…');
-
-  const base64 = await fileToBase64(singleFile);
-
-  const createRes = await fetch('https://api.meshy.ai/openapi/v2/image-to-3d', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      image_file: base64,
-      image_file_name: singleFile.name || 'image.jpg',
-      enable_pbr: true,
-    }),
-  });
-  if (!createRes.ok) {
-    const err = await createRes.text();
-    throw new Error(`Meshy submit failed (${createRes.status}): ${err}`);
-  }
-  const createData = await createRes.json();
-  const taskId = createData.result;
-  if (!taskId) throw new Error('Meshy returned no task ID');
-  stepDone('submit');
-
-  stepActive('generate');
-  setStatus('Meshy generating…');
-  while (true) {
-    await sleep(4000);
-    const pollRes = await fetch(`https://api.meshy.ai/openapi/v2/image-to-3d/${taskId}`, {
-      headers: { 'Authorization': `Bearer ${key}` },
-    });
-    if (!pollRes.ok) throw new Error(`Meshy poll failed: ${pollRes.status}`);
-    const data = await pollRes.json();
-    if (data.status === 'SUCCEEDED') {
-      stepDone('generate');
-      stepActive('download');
-      const glbUrl = data.model_urls?.glb;
-      if (!glbUrl) throw new Error('Meshy succeeded but no GLB URL in response');
-      stepDone('download');
-      return glbUrl;
-    }
-    if (data.status === 'FAILED') throw new Error('Meshy failed: ' + (data.task_error?.message || 'unknown error'));
-    if (data.progress != null) setStatus(`Meshy generating… ${data.progress}%`);
-  }
-}
-
-// ---- Tripo generation -----------------------------------------------------
-async function generateTripo(key) {
-  buildSteps(STEPS_TRIPO);
-
-  stepActive('upload');
-  setStatus('Uploading image to Tripo…');
-  const formData = new FormData();
-  formData.append('file', singleFile);
-  const uploadRes = await fetch('https://api.tripo3d.ai/v2/openapi/upload', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${key}` },
-    body: formData,
-  });
-  if (!uploadRes.ok) {
-    const err = await uploadRes.text();
-    throw new Error(`Tripo upload failed (${uploadRes.status}): ${err}`);
-  }
-  const uploadData = await uploadRes.json();
-  if (uploadData.code !== 0) throw new Error('Tripo upload error: ' + uploadData.message);
-  const fileToken = uploadData.data.image_token;
-  stepDone('upload');
-
-  stepActive('submit');
-  setStatus('Creating Tripo task…');
-  const mimeType = singleFile.type || 'image/jpeg';
-  const fileType = mimeType.includes('png') ? 'png' : 'jpeg';
-  const createRes = await fetch('https://api.tripo3d.ai/v2/openapi/task', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      type: 'image_to_model',
-      file: { type: fileType, file_token: fileToken },
-    }),
-  });
-  if (!createRes.ok) {
-    const err = await createRes.text();
-    throw new Error(`Tripo task failed (${createRes.status}): ${err}`);
-  }
-  const createData = await createRes.json();
-  if (createData.code !== 0) throw new Error('Tripo task error: ' + createData.message);
-  const taskId = createData.data.task_id;
-  stepDone('submit');
-
-  stepActive('generate');
-  setStatus('Tripo generating…');
-  while (true) {
-    await sleep(4000);
-    const pollRes = await fetch(`https://api.tripo3d.ai/v2/openapi/task/${taskId}`, {
-      headers: { 'Authorization': `Bearer ${key}` },
-    });
-    if (!pollRes.ok) throw new Error(`Tripo poll failed: ${pollRes.status}`);
-    const data = await pollRes.json();
-    if (data.code !== 0) throw new Error('Tripo poll error: ' + data.message);
-    const task = data.data;
-    if (task.status === 'success') {
-      stepDone('generate');
-      stepActive('download');
-      const glbUrl = task.result?.pbr_model?.url || task.result?.model?.url;
-      if (!glbUrl) throw new Error('Tripo succeeded but no GLB URL in response');
-      stepDone('download');
-      return glbUrl;
-    }
-    if (task.status === 'failed' || task.status === 'cancelled')
-      throw new Error('Tripo generation ' + task.status);
-    if (task.progress != null) setStatus(`Tripo generating… ${task.progress}%`);
-  }
-}
-
-// ---- helpers --------------------------------------------------------------
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 // ---- Three.js preview -----------------------------------------------------
@@ -617,19 +424,14 @@ function initRenderer() {
   const w = canvas.parentElement.clientWidth;
   renderer.setSize(w, Math.round(w * 0.75));
   renderer.setPixelRatio(window.devicePixelRatio);
-
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(60, 4 / 3, 0.01, 100);
   camera.position.set(0, 0.5, 2);
-
   scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.0));
   const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-  dir.position.set(5, 10, 7);
-  scene.add(dir);
-
+  dir.position.set(5, 10, 7); scene.add(dir);
   controls = new OrbitControls(camera, canvas);
-  controls.target.set(0, 0, 0);
-  controls.update();
+  controls.target.set(0, 0, 0); controls.update();
   renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
 }
 
@@ -637,18 +439,13 @@ function showResult(glbUrl) {
   document.getElementById('result-section').style.display = '';
   if (!renderer) initRenderer();
   scene.children.filter(c => c.userData.isModel).forEach(c => scene.remove(c));
-
   new GLTFLoader().load(glbUrl, gltf => {
     const model = gltf.scene;
     model.userData.isModel = true;
     const box = new THREE.Box3().setFromObject(model);
-    const size = box.getSize(new THREE.Vector3()).length();
-    const centre = box.getCenter(new THREE.Vector3());
-    model.position.sub(centre);
-    model.scale.setScalar(1.5 / size);
-    scene.add(model);
-    controls.target.set(0, 0, 0);
-    controls.update();
+    model.position.sub(box.getCenter(new THREE.Vector3()));
+    model.scale.setScalar(1.5 / box.getSize(new THREE.Vector3()).length());
+    scene.add(model); controls.target.set(0, 0, 0); controls.update();
   }, undefined, e => setError('Preview failed: ' + e.message));
 }
 
@@ -664,7 +461,7 @@ document.getElementById('ar-btn').addEventListener('click', () => {
 document.getElementById('save-btn').addEventListener('click', () => {
   if (!resultGlbUrl) return;
   const library = JSON.parse(localStorage.getItem('ar_library') || '[]');
-  const entry = {
+  library.push({
     id: 'gen-' + Date.now(),
     name: resultName,
     category: 'Generated',
@@ -673,8 +470,7 @@ document.getElementById('save-btn').addEventListener('click', () => {
     glb_local_url: resultGlbUrl,
     usdz_local_url: null,
     savedAt: new Date().toISOString(),
-  };
-  library.push(entry);
+  });
   localStorage.setItem('ar_library', JSON.stringify(library));
   document.getElementById('save-btn').textContent = 'Saved ✓';
   document.getElementById('save-btn').disabled = true;
